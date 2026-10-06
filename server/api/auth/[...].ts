@@ -16,7 +16,8 @@ import { prisma } from "../../utils/prisma";
 import bcrypt from "bcryptjs";
 
 export default NuxtAuthHandler({
-  secret: useRuntimeConfig().authSecret,
+  // AUTH_SECRET se lee también en tiempo de ejecución (no solo al compilar).
+  secret: process.env.AUTH_SECRET || useRuntimeConfig().authSecret,
 
   session: {
     strategy: "jwt",
