@@ -13,6 +13,20 @@
 
 import { PrismaClient } from "@prisma/client";
 
+// Garantizar que las variables de base de datos existan en serverless (Vercel)
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL =
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL ||
+    "postgres://postgres.oqkiglsiufaynvyybhbj:7nMwbgZfGPuqvHyj@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true";
+}
+
+if (!process.env.DIRECT_URL) {
+  process.env.DIRECT_URL =
+    process.env.POSTGRES_URL_NON_POOLING ||
+    "postgres://postgres.oqkiglsiufaynvyybhbj:7nMwbgZfGPuqvHyj@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require";
+}
+
 declare global {
   // eslint-disable-next-line no-var
   var __prisma: PrismaClient | undefined;
@@ -20,6 +34,11 @@ declare global {
 
 function createPrismaClient(): PrismaClient {
   return new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
     log:
       process.env.NODE_ENV === "development"
         ? ["query", "error", "warn"]
