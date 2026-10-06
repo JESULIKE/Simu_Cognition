@@ -28,10 +28,18 @@ export default defineNuxtConfig({
 
   // ── Auth (@sidebase/nuxt-auth) ────────────────────────────────────────────
   auth: {
-    // NUXT_AUTH_ORIGIN sobreescribe esto en Vercel (env var en Vercel settings)
-    baseURL: process.env.NUXT_AUTH_ORIGIN
-      ? `${process.env.NUXT_AUTH_ORIGIN}/api/auth`
-      : "http://localhost:3000/api/auth",
+    // Autodetección de origen: NUXT_AUTH_ORIGIN > AUTH_ORIGIN > VERCEL_URL > localhost
+    baseURL: (() => {
+      const origin =
+        process.env.NUXT_AUTH_ORIGIN ||
+        process.env.AUTH_ORIGIN ||
+        (process.env.VERCEL_PROJECT_PRODUCTION_URL
+          ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+          : process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : "http://localhost:3000");
+      return `${origin.replace(/\/+$/, "")}/api/auth`;
+    })(),
     provider: {
       type: "authjs",
     },

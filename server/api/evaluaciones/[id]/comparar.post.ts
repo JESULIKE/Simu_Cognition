@@ -11,7 +11,7 @@
  *  5. Devuelve la comparación al cliente.
  */
 
-import { getServerSession } from "#auth";
+import { getSafeSession } from "../../../utils/session";
 import { prisma } from "../../../utils/prisma";
 
 const MOMENTOS_DIAS: Record<string, number> = {
@@ -24,7 +24,7 @@ const MOMENTOS_DIAS: Record<string, number> = {
 
 export default defineEventHandler(async (event) => {
   // 1. Auth
-  const session = await getServerSession(event);
+  const session = await getSafeSession(event);
   const docenteId = (session?.user as { id?: string })?.id || "docente-local";
 
   // 2. Param

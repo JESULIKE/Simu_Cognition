@@ -17,7 +17,7 @@
  *   codigoAnonimo?       string       (opcional, si el docente quiere asignarlo)
  */
 
-import { getServerSession } from "#auth";
+import { getSafeSession } from "../utils/session";
 import { prisma } from "../utils/prisma";
 import { z } from "zod";
 
@@ -36,7 +36,7 @@ const schema = z.object({
 
 export default defineEventHandler(async (event) => {
   // 1. Auth & Materia check
-  const session = await getServerSession(event);
+  const session = await getSafeSession(event);
   const sessionDocenteId = (session?.user as { id?: string })?.id;
 
   // 2. Validar body

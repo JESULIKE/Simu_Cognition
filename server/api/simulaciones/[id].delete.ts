@@ -7,11 +7,11 @@
  * DELETE /api/simulaciones/:id
  */
 
-import { getServerSession } from "#auth";
+import { getSafeSession } from "../../utils/session";
 import { prisma } from "../../utils/prisma";
 
 export default defineEventHandler(async (event) => {
-  const session = await getServerSession(event);
+  const session = await getSafeSession(event);
   const usuarioId = (session?.user as { id?: string })?.id || "docente-local";
 
   const id = getRouterParam(event, "id");

@@ -8,12 +8,12 @@
  * listo para descargar y usar en el análisis del paper.
  */
 
-import { getServerSession } from "#auth";
+import { getSafeSession } from "../../../utils/session";
 import { prisma } from "../../../utils/prisma";
 
 export default defineEventHandler(async (event) => {
   // 1. Auth
-  const session = await getServerSession(event);
+  const session = await getSafeSession(event);
   const docenteId = (session?.user as { id?: string })?.id || "docente-local";
 
   // 2. Param

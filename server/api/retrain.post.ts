@@ -11,7 +11,7 @@
  *  5. Devuelve métricas R² y MAE al frontend.
  */
 
-import { getServerSession } from "#auth";
+import { getSafeSession } from "../utils/session";
 import { prisma } from "../utils/prisma";
 import { z } from "zod";
 
@@ -29,7 +29,7 @@ const schema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
-  const session = await getServerSession(event);
+  const session = await getSafeSession(event);
   const usuarioId = (session?.user as { id?: string })?.id || "docente-local";
 
   const body = await readBody(event);
