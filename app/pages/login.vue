@@ -49,23 +49,7 @@
           <span v-if="loading" class="spinner" />
           <span>{{ loading ? 'Ingresando...' : 'Iniciar Sesión' }}</span>
         </button>
-
-        <div class="divider">
-          <span>o</span>
-        </div>
-
-        <NuxtLink to="/dashboard" class="btn btn-ghost direct-btn">
-          <span>🚀 Entrar directamente al Simulador (Modo Local)</span>
-        </NuxtLink>
       </form>
-
-      <!-- Hint de credenciales -->
-      <div class="test-credentials">
-        <span class="cred-title">Credenciales de prueba:</span>
-        <code>docente@simu-cognition.app</code>
-        <code>docente123</code>
-        <button type="button" class="autofill-btn" @click="autoFill">Rellenar formulario</button>
-      </div>
 
       <p class="login-footer">
         ¿Deseas registrar un nuevo docente?
@@ -84,11 +68,6 @@ const router = useRouter()
 const form = reactive({ email: '', password: '' })
 const loading = ref(false)
 const errorMsg = ref('')
-
-function autoFill() {
-  form.email = 'docente@simu-cognition.app'
-  form.password = 'docente123'
-}
 
 async function handleLogin() {
   loading.value = true

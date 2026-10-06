@@ -31,12 +31,16 @@ model Materia {
   id        String      @id @default(cuid())
   nombre    String
   tipo      String      // "MEMORISTICA" | "LOGICO_MATEMATICA" | "MIXTA"
+  // Dificultad objetiva del contenido fijada por el docente (1-5).
+  // La encuesta pública de estudiantes la hereda de aquí.
+  dificultadDocente Int @default(3)
   creadoEn  DateTime    @default(now())
 
   usuario   Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   usuarioId String
 
   dataset      Dataset?
+  calibracion  CalibracionGrupo?
   simulaciones Simulacion[]
   evaluaciones EstudianteEvaluacion[]
 
@@ -82,7 +86,7 @@ model Simulacion {
 
 model EstudianteEvaluacion {
   id            String   @id @default(cuid())
-  codigoAnonimo String   @unique // ej. "EST-001" — nunca nombre real
+  codigoAnonimo String   // ej. "EST-001" — nunca nombre real (único por materia)
 
   // Ficha del docente
   dificultadDocente    Int    // 1-5
@@ -105,6 +109,7 @@ model EstudianteEvaluacion {
   resultados  ResultadoQuiz[]
   comparacion ComparacionResultado?
 
+  @@unique([materiaId, codigoAnonimo])
   @@index([materiaId])
   @@index([docenteId])
 }
@@ -132,7 +137,7 @@ model ComparacionResultado {
   calificacionReal     Float
   errorAbsoluto        Float // |predicha - real|
 
-  // H2 — series temporales (JSON serializado como String — limitación SQLite)
+  // H2 — series temporales (JSON serializado como String)
   retencionPredichaJson String // "[{\"dia\": 0, \"retencion_predicha\": 1.0}, ...]"
   retencionRealJson     String // "[{\"dia\": 0, \"retencion_real\": 1.0}, ...]"
 
@@ -141,4 +146,26 @@ model ComparacionResultado {
 
   evaluacion   EstudianteEvaluacion @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
   evaluacionId String               @unique
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Calibración de la estabilidad de memoria S con datos reales del grupo
+// ─────────────────────────────────────────────────────────────────────────────
+
+model CalibracionGrupo {
+  id             String   @id @default(cuid())
+  // Factor de escala de S del grupo (1.0 = valor teórico). Ver ml-service/model/calibracion.py
+  escalaS        Float
+  icBajo         Float    // IC95 bootstrap
+  icAlto         Float
+  nEstudiantes   Int
+  nPuntos        Int
+  rmseTeorica    Float
+  rmseCalibrada  Float
+  // true: el simulador usa esta calibración; false: usa la teoría por defecto
+  aplicada       Boolean  @default(true)
+  calculadaEn    DateTime @default(now())
+
+  materia   Materia @relation(fields: [materiaId], references: [id], onDelete: Cascade)
+  materiaId String  @unique
 }

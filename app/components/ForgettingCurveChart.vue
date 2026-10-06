@@ -2,7 +2,7 @@
   <div class="chart-card card">
     <div class="chart-header">
       <div>
-        <div class="chart-badge badge-purple">Modelo Ebbinghaus Paramétrico</div>
+        <div class="chart-badge badge-purple">{{ etiquetaModelo || 'Modelo Ebbinghaus Paramétrico' }}</div>
         <h4 class="chart-title">Curva de Olvido</h4>
         <p class="chart-subtitle">Decaimiento temporal de retención en memoria y momento crítico de repaso</p>
       </div>
@@ -28,6 +28,10 @@
       <div class="legend-item">
         <span class="legend-line line-ebbinghaus"></span>
         <span>Retención Estimada (% de memoria conservada)</span>
+      </div>
+      <div v-if="plan && plan.dias.length > 0" class="legend-item">
+        <span class="legend-line" style="border-top: 3px solid #34d399; width: 24px; display: inline-block"></span>
+        <span>Con repasos planificados (se reinicia en cada repaso)</span>
       </div>
       <div class="legend-item">
         <span class="legend-line line-umbral-ret"></span>
@@ -55,6 +59,7 @@ import {
   Filler,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
+import { retencionConPlan, type PlanRepasos } from '~/composables/usePlanRepasos'
 
 ChartJS.register(
   Title,
@@ -71,6 +76,10 @@ const props = defineProps<{
   curva: { x_dias: number[]; retencion: number[] } | null
   diaRepasoOptimo: number
   umbralRetencion: number
+  /** Si se pasa, se dibuja además la curva con los repasos del plan. */
+  plan?: PlanRepasos | null
+  /** Texto del badge: curva teórica o calibrada con el grupo. */
+  etiquetaModelo?: string
 }>()
 
 const chartData = computed(() => {
@@ -123,6 +132,17 @@ const chartData = computed(() => {
           return gradient
         },
       },
+      ...(props.plan && props.plan.dias.length > 0
+        ? [{
+            label: 'Con repasos planificados (%)',
+            data: props.curva.x_dias.map((d) => Math.round(retencionConPlan(d, props.plan as PlanRepasos) * 1000) / 10),
+            borderColor: '#34d399',
+            borderWidth: 2.5,
+            pointRadius: 0,
+            tension: 0,
+            fill: false,
+          }]
+        : []),
       {
         label: `Umbral de Retención (${umbralPercent}%)`,
         data: props.curva.x_dias.map(() => umbralPercent),
@@ -160,10 +180,13 @@ const chartOptions = computed(() => ({
       boxPadding: 4,
       callbacks: {
         label: (context: any) => {
-          if (context.datasetIndex === 1) {
+          if (String(context.dataset.label).startsWith('Umbral')) {
             return `Umbral deseado: ${Math.round(props.umbralRetencion * 100)}%`
           }
-          return `Retención: ${context.parsed.y}%`
+          if (String(context.dataset.label).startsWith('Con repasos')) {
+            return `Con repasos planificados: ${context.parsed.y}%`
+          }
+          return `Sin repaso: ${context.parsed.y}%`
         },
       },
     },

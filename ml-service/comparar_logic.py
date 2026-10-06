@@ -134,14 +134,15 @@ def calcular_comparacion(req: CompararRequest) -> CompararResponse:
     3. Si hay puntos reales de olvido (días > 0), calcula delta promedio.
     4. Genera recomendación basada en reglas pedagógicas.
     """
-    modelo = cargar_modelo(req.tipo_materia)
+    modelo = cargar_modelo(req.tipo_materia, req.materia_id)
 
     # ── H1: predicción de calificación ──────────────────────────────────────
     X = np.array([[
         req.horas_estudio,
         req.dificultad_docente,
         req.repasos_previos,
-        req.calidad_estudio,
+        # El modelo sustituto se entrenó con calidad en [0.3, 1.0]: no extrapolar.
+        min(max(req.calidad_estudio, 0.3), 1.0),
     ]])
     calificacion_predicha = float(np.clip(modelo.predict(X)[0], 0, 100))
     error_absoluto = abs(calificacion_predicha - req.calificacion_real)
@@ -154,6 +155,7 @@ def calcular_comparacion(req: CompararRequest) -> CompararResponse:
         req.dificultad_docente,
         req.repasos_previos,
         req.calidad_estudio,
+        req.escala_s,
     )
     curva_predicha = [
         PuntoOlvidoPredicho(dia=float(d), retencion_predicha=float(r))

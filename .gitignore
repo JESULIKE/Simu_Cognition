@@ -34,3 +34,7 @@ prisma/*.db
 **/__pycache__
 **/*.pyc
 **/*.pyo
+
+# Modelos sustitutos reentrenados por docente (se regeneran; no versionar)
+ml-service/model/modelos/custom/
+.pytest_cache

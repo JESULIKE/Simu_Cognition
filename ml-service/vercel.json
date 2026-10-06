@@ -8,11 +8,7 @@
   ],
   "routes": [
     {
-      "src": "/simulate",
-      "dest": "/api/simulate"
-    },
-    {
-      "src": "/",
+      "src": "/(.*)",
       "dest": "/api/simulate"
     }
   ]

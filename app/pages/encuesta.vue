@@ -20,7 +20,7 @@
       <!-- Loading state -->
       <div v-if="loadingMaterias" class="card card-loading">
         <div class="spinner"></div>
-        <p>Cargando materias disponibles...</p>
+        <p>Cargando encuesta...</p>
       </div>
 
       <!-- Success Screen -->
@@ -42,28 +42,19 @@
 
       <!-- Form Card -->
       <form v-else class="card form-card" @submit.prevent="submitEncuesta">
-        <!-- 1. Materia -->
+        <!-- 1. Materia (viene del enlace/QR que comparte el docente) -->
         <section class="form-group">
-          <label class="field-label" for="materia-select">
+          <label class="field-label">
             <span class="step-num">1</span>
-            ¿En qué materia o tema estás participando?
+            Materia o tema
           </label>
-          <div v-if="materias.length === 0" class="alert alert-warning">
-            No se encontraron materias registradas aún. Si eres docente, crea al menos una materia en el panel o ejecuta el seed.
+          <div v-if="!materia" class="alert alert-warning">
+            Este enlace no es válido o está incompleto. Pídele a tu docente el enlace o el código QR de la encuesta.
           </div>
-          <select
-            v-else
-            id="materia-select"
-            v-model="form.materiaId"
-            class="form-select"
-            required
-            @change="onMateriaChange"
-          >
-            <option value="" disabled>Selecciona tu materia...</option>
-            <option v-for="m in materias" :key="m.id" :value="m.id">
-              {{ m.nombre }} ({{ formatTipo(m.tipo) }})
-            </option>
-          </select>
+          <div v-else class="materia-fija">
+            <strong>{{ materia.nombre }}</strong>
+            <span class="field-hint">{{ formatTipo(materia.tipo) }}</span>
+          </div>
         </section>
 
         <!-- 2. Código anónimo opcional -->
@@ -238,7 +229,7 @@ const LIKERT_ITEMS = [
 
 const DIF_LABELS = ['Muy Fácil', 'Fácil', 'Moderado', 'Difícil', 'Muy Difícil']
 
-const materias = ref<MateriaItem[]>([])
+const materia = ref<MateriaItem | null>(null)
 const loadingMaterias = ref(true)
 const submitting = ref(false)
 const submitted = ref(false)
@@ -249,42 +240,27 @@ const likertValues = ref<number[]>([0, 0, 0, 0, 0])
 
 const form = ref({
   materiaId: '',
-  tipoMateriaDocente: 'MIXTA' as 'MEMORISTICA' | 'LOGICO_MATEMATICA' | 'MIXTA',
-  dificultadDocente: 3,
   codigoAnonimo: '',
   horasEstudio: 2,
   repasosPrevios: 0,
   dificultadPercibida: 0,
 })
 
-// Cargar materias disponibles
+// La materia llega por el enlace /encuesta?materia=ID (enlace o QR del docente).
+// No se listan materias: solo se resuelve la que el docente compartió.
 onMounted(async () => {
+  const paramMateria = route.query.materia as string | undefined
   try {
-    const data = await $fetch<MateriaItem[]>('/api/materias?publicas=true')
-    materias.value = data || []
-
-    // Si viene materia en query param (ej. /encuesta?materia=ID)
-    const paramMateria = route.query.materia as string
-    if (paramMateria && materias.value.some((m) => m.id === paramMateria)) {
-      form.value.materiaId = paramMateria
-      onMateriaChange()
-    } else if (materias.value.length === 1) {
-      form.value.materiaId = materias.value[0].id
-      onMateriaChange()
+    if (paramMateria) {
+      materia.value = await $fetch<MateriaItem>(`/api/publico/materias/${encodeURIComponent(paramMateria)}`)
+      form.value.materiaId = materia.value.id
     }
-  } catch (err) {
-    console.error('Error cargando materias:', err)
+  } catch {
+    materia.value = null
   } finally {
     loadingMaterias.value = false
   }
 })
-
-function onMateriaChange() {
-  const selected = materias.value.find((m) => m.id === form.value.materiaId)
-  if (selected && ['MEMORISTICA', 'LOGICO_MATEMATICA', 'MIXTA'].includes(selected.tipo)) {
-    form.value.tipoMateriaDocente = selected.tipo as 'MEMORISTICA' | 'LOGICO_MATEMATICA' | 'MIXTA'
-  }
-}
 
 function formatTipo(tipo: string) {
   if (tipo === 'LOGICO_MATEMATICA') return 'Lógico-Matemática'
@@ -302,6 +278,7 @@ const calidadEstudioCalc = computed(() => {
 
 const isFormValid = computed(() => {
   return (
+    materia.value &&
     form.value.materiaId &&
     form.value.horasEstudio >= 0.5 &&
     form.value.dificultadPercibida > 0 &&
@@ -317,8 +294,6 @@ async function submitEncuesta() {
   try {
     const payload: Record<string, unknown> = {
       materiaId: form.value.materiaId,
-      tipoMateriaDocente: form.value.tipoMateriaDocente,
-      dificultadDocente: form.value.dificultadDocente,
       horasEstudio: form.value.horasEstudio,
       repasosPrevios: form.value.repasosPrevios,
       calidadEstudio: parseFloat(calidadEstudioCalc.value.toFixed(3)),
@@ -462,6 +437,16 @@ function resetForm() {
   font-size: 0.85rem;
   font-weight: 400;
   color: var(--color-text-muted);
+}
+
+.materia-fija {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
 }
 
 .field-hint {

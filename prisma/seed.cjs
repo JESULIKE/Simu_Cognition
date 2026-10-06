@@ -1,20 +1,29 @@
+/**
+ * prisma/seed.cjs — crea un docente de DEMO con 3 materias de ejemplo.
+ *
+ * Uso (local):
+ *   SEED_EMAIL=docente@ejemplo.com SEED_PASSWORD='una-clave-larga' npx prisma db seed
+ *
+ * No hay credenciales por defecto a propósito: un usuario con clave conocida
+ * en una base de datos pública es una puerta abierta.
+ */
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  const hash = await bcrypt.hash('docente123', 10);
-  const user = await prisma.usuario.upsert({
-    where: { email: 'docente@simu-cognition.app' },
-    update: {},
-    create: {
-      id: 'docente-local',
-      nombre: 'Prof. Alejandro Morales',
-      email: 'docente@simu-cognition.app',
-      passwordHash: hash,
-    },
-  });
+  const email = process.env.SEED_EMAIL;
+  const password = process.env.SEED_PASSWORD;
+  if (!email || !password || password.length < 8) {
+    throw new Error('Define SEED_EMAIL y SEED_PASSWORD (mínimo 8 caracteres).');
+  }
 
+  const hash = await bcrypt.hash(password, 12);
+  const user = await prisma.usuario.upsert({
+    where: { email },
+    update: {},
+    create: { nombre: 'Docente de demostración', email, passwordHash: hash },
+  });
   console.log('Usuario listo:', user.email);
 
   const materias = [
@@ -29,12 +38,7 @@ async function main() {
     });
     if (!existing) {
       await prisma.materia.create({
-        data: {
-          nombre: m.nombre,
-          tipo: m.tipo,
-          usuarioId: user.id,
-          dataset: { create: { origen: 'sintetico' } },
-        },
+        data: { nombre: m.nombre, tipo: m.tipo, usuarioId: user.id, dataset: { create: { origen: 'sintetico' } } },
       });
       console.log('Materia lista:', m.nombre);
     }
@@ -42,8 +46,8 @@ async function main() {
 }
 
 main()
-  .then(() => prisma.$disconnect())
   .catch((err) => {
-    console.error(err);
-    return prisma.$disconnect();
-  });
+    console.error(err.message || err);
+    process.exitCode = 1;
+  })
+  .finally(() => prisma.$disconnect());

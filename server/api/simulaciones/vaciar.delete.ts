@@ -6,12 +6,11 @@
  * DELETE /api/simulaciones/vaciar
  */
 
-import { getSafeSession } from "../../utils/session";
+import { requireDocenteId } from "../../utils/session";
 import { prisma } from "../../utils/prisma";
 
 export default defineEventHandler(async (event) => {
-  const session = await getSafeSession(event);
-  const usuarioId = (session?.user as { id?: string })?.id || "docente-local";
+  const usuarioId = await requireDocenteId(event);
 
   const query = getQuery(event);
   const materiaId = query.materiaId as string | undefined;

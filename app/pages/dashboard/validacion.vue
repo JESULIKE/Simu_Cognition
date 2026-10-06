@@ -11,7 +11,7 @@
         <div class="hero-badge">Módulo v4.0</div>
         <h1 class="hero-title">Validación Empírica</h1>
         <p class="hero-sub">
-          Recolectá datos reales de estudiantes, compará contra las predicciones del simulador y exportá el dataset para el paper.
+          Mide qué retiene realmente tu grupo, calibra la curva de olvido con esos datos y exporta el dataset para tu investigación.
         </p>
       </div>
 
@@ -53,11 +53,12 @@
         <div class="survey-box-left">
           <span class="survey-badge">📱 Encuesta para Alumnos</span>
           <p class="survey-desc">
-            ¿Querés que tus estudiantes respondan directamente desde sus teléfonos o computadoras?
+            Proyecta el código QR o comparte el enlace: tus estudiantes responden desde el celular, sin registrarse y de forma anónima.
           </p>
           <code class="survey-url">{{ publicSurveyUrl }}</code>
         </div>
-        <button type="button" class="btn-copy-link" @click="copySurveyLink">
+        <img v-if="qrDataUrl" :src="qrDataUrl" alt="Código QR de la encuesta" class="survey-qr" width="132" height="132" />
+        <button type="button" class="btn-copy-link" :disabled="!materiaActivaId" @click="copySurveyLink">
           {{ copied ? '¡Copiado!' : 'Copiar Enlace' }}
         </button>
       </div>
@@ -185,11 +186,20 @@
         :materia-id="materiaActivaId"
       />
     </section>
+
+    <!-- ── TAB: Calibración ────────────────────────────────────────────── -->
+    <section v-if="activeTab === 'calibracion'" class="tab-content">
+      <div class="section-intro">
+        <h2 class="section-h2">Calibración de la curva de olvido</h2>
+        <p class="section-p">Ajusta la curva teórica a la retención real de tu grupo. El simulador usará esa curva para planear tus repasos.</p>
+      </div>
+      <CalibracionPanel :materia-id="materiaActivaId" />
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 definePageMeta({
   layout: 'dashboard',
@@ -204,9 +214,10 @@ const TABS = [
   { key: 'resultado',   label: 'Registrar Quiz',        icon: '✏️' },
   { key: 'comparacion', label: 'Comparación',            icon: '📊' },
   { key: 'analisis',    label: 'Análisis Agregado',      icon: '🔬' },
+  { key: 'calibracion', label: 'Calibración',            icon: '🎯' },
 ]
 
-const activeTab = ref<'registrar' | 'resultado' | 'comparacion' | 'analisis'>('registrar')
+const activeTab = ref<'registrar' | 'resultado' | 'comparacion' | 'analisis' | 'calibracion'>('registrar')
 
 // ── Materias ──────────────────────────────────────────────────────────────────
 
@@ -223,6 +234,22 @@ const publicSurveyUrl = computed(() => {
   }
   return '/encuesta'
 })
+
+const qrDataUrl = ref('')
+watch(
+  [publicSurveyUrl, materiaActivaId],
+  async () => {
+    qrDataUrl.value = ''
+    if (!process.client || !materiaActivaId.value) return
+    try {
+      const QRCode = (await import('qrcode')).default
+      qrDataUrl.value = await QRCode.toDataURL(publicSurveyUrl.value, { width: 264, margin: 1 })
+    } catch {
+      qrDataUrl.value = ''
+    }
+  },
+  { immediate: true },
+)
 
 function copySurveyLink() {
   if (process.client && navigator.clipboard) {
@@ -702,5 +729,12 @@ function formatFecha(iso: string) {
 
 .btn-copy-link:hover {
   background: #2d5dbd;
+}
+
+.survey-qr {
+  border-radius: 8px;
+  background: #fff;
+  padding: 4px;
+  flex-shrink: 0;
 }
 </style>

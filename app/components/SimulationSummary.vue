@@ -23,7 +23,7 @@
             ></div>
           </div>
         </div>
-        <span class="metric-desc">Estimada por el modelo polinomial</span>
+        <span class="metric-desc">Estimada por el modelo sustituto (aproxima el simulador teórico)</span>
       </div>
 
       <!-- 2. Día de repaso óptimo -->

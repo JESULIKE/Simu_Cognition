@@ -8,13 +8,13 @@
  * listo para descargar y usar en el análisis del paper.
  */
 
-import { getSafeSession } from "../../../utils/session";
+import { requireDocenteId } from "../../../utils/session";
 import { prisma } from "../../../utils/prisma";
+import { mlFetch } from "../../../utils/ml";
 
 export default defineEventHandler(async (event) => {
   // 1. Auth
-  const session = await getSafeSession(event);
-  const docenteId = (session?.user as { id?: string })?.id || "docente-local";
+  const docenteId = await requireDocenteId(event);
 
   // 2. Param
   const materiaId = getRouterParam(event, "materiaId");
@@ -63,14 +63,9 @@ export default defineEventHandler(async (event) => {
   }));
 
   // 6. Llamar al microservicio Python para generar el CSV
-  const mlUrl = useRuntimeConfig().mlServiceUrl;
   let csvContent: string;
   try {
-    csvContent = await $fetch<string>(`${mlUrl}/analisis/exportar`, {
-      method: "POST",
-      body: { rows },
-      responseType: "text",
-    });
+    csvContent = await mlFetch<string>("/analisis/exportar", { body: { rows }, responseType: "text" });
   } catch (err) {
     console.error("[exportar] Error llamando al microservicio ML:", err);
     throw createError({
