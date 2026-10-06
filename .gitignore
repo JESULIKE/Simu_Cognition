@@ -6,6 +6,9 @@
 .cache
 dist
 
+# Vercel build output
+.vercel
+
 # Node dependencies
 node_modules
 
@@ -22,3 +25,12 @@ logs
 .env
 .env.*
 !.env.example
+
+# SQLite dev database
+prisma/dev.db
+prisma/*.db
+
+# Python cache
+**/__pycache__
+**/*.pyc
+**/*.pyo
