@@ -33,9 +33,9 @@
           </button>
         </div>
 
-        <div class="status-chip">
+        <div class="status-chip" :class="{ 'status-chip--warn': simResult?.origen === 'respaldo_ts' }">
           <span class="pulse-dot"></span>
-          <span>Motor ML Activo</span>
+          <span>{{ simResult?.origen === 'respaldo_ts' ? 'Modo respaldo (modelo teórico)' : 'Motor ML Activo' }}</span>
         </div>
       </div>
     </header>
@@ -91,6 +91,24 @@
 
       <!-- Columna Derecha: KPIs y Gráficos -->
       <section class="right-col">
+        <!-- Origen de la curva de olvido: teórica o calibrada con el grupo -->
+        <div class="model-banner card" :class="{ 'model-banner--cal': simResult?.calibrado }">
+          <div v-if="simResult?.calibrado && simResult.calibracion" class="model-banner-text">
+            <strong>Curva calibrada con tu grupo</strong>
+            ({{ simResult.calibracion.n_estudiantes }} estudiantes): la memoria dura
+            {{ simResult.calibracion.escala_s.toFixed(2) }}× lo que predice la teoría
+            (IC 95 %: {{ simResult.calibracion.ic95[0].toFixed(2) }}–{{ simResult.calibracion.ic95[1].toFixed(2) }}).
+          </div>
+          <div v-else class="model-banner-text">
+            <strong>Curva teórica (Ebbinghaus)</strong>: valores de partida de la literatura, aún sin datos de tu grupo.
+            Mide a tus estudiantes en <NuxtLink to="/dashboard/validacion">Validación Empírica</NuxtLink> para calibrarla.
+          </div>
+          <label v-if="simResult?.calibrado" class="model-toggle">
+            <input v-model="usarCalibracion" type="checkbox" @change="ejecutarSimulacion" />
+            Usar calibración
+          </label>
+        </div>
+
         <!-- KPIs y Diagnóstico pedagógico -->
         <SimulationSummary
           :calificacion-predicha="simResult?.calificacion_predicha ?? 0"
@@ -116,9 +134,20 @@
               :curva="simResult?.curva_olvido ?? null"
               :dia-repaso-optimo="simResult?.dia_repaso_optimo ?? 0"
               :umbral-retencion="params.umbral_retencion"
+              :plan="planRepasos"
+              :etiqueta-modelo="simResult?.calibrado ? 'Curva calibrada con tu grupo' : 'Curva teórica (Ebbinghaus)'"
             />
           </div>
         </div>
+
+        <PlanRepasosCard
+          v-if="simResult && planRepasos"
+          :plan="planRepasos"
+          :estabilidad="simResult.estabilidad_dias"
+          :umbral-retencion="params.umbral_retencion"
+          :nombre-materia="materiaActual?.nombre ?? 'Materia'"
+          :calibrado="!!simResult.calibrado"
+        />
       </section>
     </div>
 
@@ -133,6 +162,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
+import { calcularPlanRepasos } from '~/composables/usePlanRepasos'
 
 definePageMeta({
   layout: 'dashboard',
@@ -150,6 +180,10 @@ interface SimResult {
   curva_olvido: { x_dias: number[]; retencion: number[] }
   calificacion_predicha: number
   dia_repaso_optimo: number
+  estabilidad_dias: number
+  origen?: 'ml' | 'respaldo_ts'
+  calibrado?: boolean
+  calibracion?: { escala_s: number; ic95: [number, number]; n_estudiantes: number } | null
 }
 
 const materias = ref<Materia[]>([])
@@ -167,6 +201,17 @@ const params = ref({
 })
 
 const simResult = ref<SimResult | null>(null)
+const usarCalibracion = ref(true)
+
+const planRepasos = computed(() =>
+  simResult.value
+    ? calcularPlanRepasos(
+        simResult.value.estabilidad_dias,
+        params.value.repasos_previos,
+        params.value.umbral_retencion,
+      )
+    : null,
+)
 const simulando = ref(false)
 const apiError = ref('')
 
@@ -233,6 +278,7 @@ async function ejecutarSimulacion() {
         repasos_previos: params.value.repasos_previos,
         calidad_estudio: params.value.calidad_estudio,
         umbral_retencion: params.value.umbral_retencion,
+        usar_calibracion: usarCalibracion.value,
       },
     })
     simResult.value = res
@@ -518,4 +564,20 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 }
+
+.status-chip--warn { border-color: rgba(245, 158, 11, 0.5); color: #f59e0b; }
+
+.model-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  border-left: 3px solid var(--color-border-light);
+}
+.model-banner--cal { border-left-color: #34d399; }
+.model-banner-text a { color: var(--color-primary); }
+.model-toggle { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; cursor: pointer; }
 </style>

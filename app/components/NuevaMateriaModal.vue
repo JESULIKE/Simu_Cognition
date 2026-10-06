@@ -69,6 +69,25 @@
           </div>
         </div>
 
+        <div class="form-group">
+          <label class="form-label" for="materia-dificultad">
+            Dificultad del contenido según el docente:
+            <strong>{{ dificultad }} / 5</strong>
+          </label>
+          <input
+            id="materia-dificultad"
+            v-model.number="dificultad"
+            type="range"
+            min="1"
+            max="5"
+            step="1"
+            :disabled="guardando"
+          />
+          <small class="tipo-desc">
+            Los estudiantes que respondan la encuesta heredan este valor. 1 = muy fácil, 5 = muy difícil.
+          </small>
+        </div>
+
         <div v-if="error" class="error-banner">
           {{ error }}
         </div>
@@ -110,6 +129,7 @@ const emit = defineEmits<{
 
 const nombre = ref('')
 const tipo = ref<'MEMORISTICA' | 'LOGICO_MATEMATICA' | 'MIXTA'>('MIXTA')
+const dificultad = ref(3)
 const guardando = ref(false)
 const error = ref('')
 
@@ -124,10 +144,12 @@ async function guardarMateria() {
       body: {
         nombre: nombre.value.trim(),
         tipo: tipo.value,
+        dificultadDocente: dificultad.value,
       },
     })
     nombre.value = ''
     tipo.value = 'MIXTA'
+    dificultad.value = 3
     emit('creada', res)
     emit('update:modelValue', false)
   } catch (err: any) {

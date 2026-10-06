@@ -9,13 +9,13 @@
  * confirmación direccional) junto con la lista de evaluaciones individuales.
  */
 
-import { getSafeSession } from "../../utils/session";
+import { requireDocenteId } from "../../utils/session";
 import { prisma } from "../../utils/prisma";
+import { mlFetch } from "../../utils/ml";
 
 export default defineEventHandler(async (event) => {
   // 1. Auth
-  const session = await getSafeSession(event);
-  const docenteId = (session?.user as { id?: string })?.id || "docente-local";
+  const docenteId = await requireDocenteId(event);
 
   // 2. Param
   const materiaId = getRouterParam(event, "materiaId");
@@ -68,7 +68,6 @@ export default defineEventHandler(async (event) => {
   }));
 
   // 7. Llamar al microservicio Python
-  const mlUrl = useRuntimeConfig().mlServiceUrl;
   type MLMetricasResponse = {
     n: number;
     mae: number;
@@ -88,10 +87,7 @@ export default defineEventHandler(async (event) => {
 
   let metricas: MLMetricasResponse;
   try {
-    metricas = await $fetch<MLMetricasResponse>(`${mlUrl}/analisis/agregado`, {
-      method: "POST",
-      body: { rows },
-    });
+    metricas = await mlFetch<MLMetricasResponse>("/analisis/agregado", { body: { rows } });
   } catch (err) {
     console.error("[analisis] Error llamando al microservicio ML:", err);
     throw createError({

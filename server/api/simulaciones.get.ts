@@ -5,13 +5,12 @@
  * GET /api/simulaciones?materiaId=<id>&limit=20&offset=0
  */
 
-import { getSafeSession } from "../utils/session";
+import { requireDocenteId } from "../utils/session";
 import { prisma } from "../utils/prisma";
 
 export default defineEventHandler(async (event) => {
   try {
-    const session = await getSafeSession(event);
-    const usuarioId = (session?.user as { id?: string })?.id || "docente-local";
+    const usuarioId = await requireDocenteId(event);
 
     const query = getQuery(event);
     const materiaId = query.materiaId as string | undefined;
@@ -41,6 +40,7 @@ export default defineEventHandler(async (event) => {
 
     return { simulaciones, total, limit, offset };
   } catch (error) {
+    if ((error as { statusCode?: number }).statusCode) throw error;
     console.error("[api/simulaciones] Error al cargar simulaciones:", error);
     throw createError({
       statusCode: 500,

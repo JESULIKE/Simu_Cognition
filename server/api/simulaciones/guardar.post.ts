@@ -7,7 +7,7 @@
  * POST /api/simulaciones/guardar
  */
 
-import { getSafeSession } from "../../utils/session";
+import { requireDocenteId } from "../../utils/session";
 import { prisma } from "../../utils/prisma";
 import { z } from "zod";
 
@@ -24,8 +24,7 @@ const schema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
-  const session = await getSafeSession(event);
-  const usuarioId = (session?.user as { id?: string })?.id || "docente-local";
+  const usuarioId = await requireDocenteId(event);
 
   const body = await readBody(event);
   const parsed = schema.safeParse(body);

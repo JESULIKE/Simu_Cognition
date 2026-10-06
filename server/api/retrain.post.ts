@@ -11,8 +11,9 @@
  *  5. Devuelve métricas R² y MAE al frontend.
  */
 
-import { getSafeSession } from "../utils/session";
+import { requireDocenteId } from "../utils/session";
 import { prisma } from "../utils/prisma";
+import { mlFetch } from "../utils/ml";
 import { z } from "zod";
 
 const datoSchema = z.object({
@@ -29,8 +30,7 @@ const schema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
-  const session = await getSafeSession(event);
-  const usuarioId = (session?.user as { id?: string })?.id || "docente-local";
+  const usuarioId = await requireDocenteId(event);
 
   const body = await readBody(event);
   const parsed = schema.safeParse(body);
@@ -53,7 +53,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: "Materia no encontrada" });
   }
 
-  const mlUrl = useRuntimeConfig().mlServiceUrl;
   let retrainResult: {
     status: string;
     tipo_materia: string;
@@ -63,9 +62,9 @@ export default defineEventHandler(async (event) => {
   };
 
   try {
-    retrainResult = await $fetch(`${mlUrl}/retrain`, {
-      method: "POST",
-      query: { tipo_materia: materia.tipo },
+    // El modelo reentrenado queda asociado SOLO a esta materia.
+    retrainResult = await mlFetch("/retrain", {
+      query: { tipo_materia: materia.tipo, materia_id: materiaId },
       body: datos,
     });
   } catch (err: any) {

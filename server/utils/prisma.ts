@@ -7,24 +7,25 @@
  * que el patrón singleton con `globalThis` evita múltiples instancias en hot
  * reload de desarrollo sin sacrificar la reutilización en producción.
  *
- * Uso en cualquier route handler de server/:
- *   import { prisma } from "~/server/utils/prisma"
+ * Las credenciales NUNCA van en el código: se leen de variables de entorno
+ * (.env en local; Project Settings → Environment Variables en Vercel).
  */
 
 import { PrismaClient } from "@prisma/client";
 
-// Garantizar que las variables de base de datos existan en serverless (Vercel)
+// Las integraciones de Vercel/Supabase publican nombres alternativos.
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL =
-    process.env.POSTGRES_PRISMA_URL ||
-    process.env.POSTGRES_URL ||
-    "postgres://postgres.oqkiglsiufaynvyybhbj:7nMwbgZfGPuqvHyj@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true";
+    process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL || "";
+}
+if (!process.env.DIRECT_URL) {
+  process.env.DIRECT_URL = process.env.POSTGRES_URL_NON_POOLING || "";
 }
 
-if (!process.env.DIRECT_URL) {
-  process.env.DIRECT_URL =
-    process.env.POSTGRES_URL_NON_POOLING ||
-    "postgres://postgres.oqkiglsiufaynvyybhbj:7nMwbgZfGPuqvHyj@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require";
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    "DATABASE_URL no está definida. Configúrala en .env (local) o en las variables de entorno de Vercel."
+  );
 }
 
 declare global {

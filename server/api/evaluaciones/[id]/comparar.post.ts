@@ -11,8 +11,9 @@
  *  5. Devuelve la comparación al cliente.
  */
 
-import { getSafeSession } from "../../../utils/session";
+import { requireDocenteId } from "../../../utils/session";
 import { prisma } from "../../../utils/prisma";
+import { mlFetch } from "../../../utils/ml";
 
 const MOMENTOS_DIAS: Record<string, number> = {
   INICIAL: 0,
@@ -24,8 +25,7 @@ const MOMENTOS_DIAS: Record<string, number> = {
 
 export default defineEventHandler(async (event) => {
   // 1. Auth
-  const session = await getSafeSession(event);
-  const docenteId = (session?.user as { id?: string })?.id || "docente-local";
+  const docenteId = await requireDocenteId(event);
 
   // 2. Param
   const evaluacionId = getRouterParam(event, "id");
@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // 5. Construir puntos de olvido reales (H2)
-  //    retencion_real = notaObtenida(momento) / notaObtenida(INICIAL)
+  //    retencion_real = min(1, notaObtenida(momento) / notaObtenida(INICIAL))
   //    Se excluyen los momentos con reestudioReportado = true
   const puntosOlvidoReales = evaluacion.resultados
     .filter((r) => !r.reestudioReportado && r.momento in MOMENTOS_DIAS)
@@ -61,11 +61,18 @@ export default defineEventHandler(async (event) => {
       retencion_real:
         r.momento === "INICIAL"
           ? 1.0
-          : (inicial.notaObtenida > 0 ? r.notaObtenida / inicial.notaObtenida : 0.0),
+          : inicial.notaObtenida > 0
+            ? Math.min(1, r.notaObtenida / inicial.notaObtenida)
+            : 0.0,
     }));
 
   // 6. Llamar al microservicio Python /comparar
-  const mlUrl = useRuntimeConfig().mlServiceUrl;
+  // Calibración del grupo (si existe) y modelo sustituto propio de la materia
+  const materiaCtx = await prisma.materia.findUnique({
+    where: { id: evaluacion.materiaId },
+    select: { calibracion: true, dataset: { select: { origen: true } } },
+  });
+  const escalaS = materiaCtx?.calibracion?.aplicada ? materiaCtx.calibracion.escalaS : 1;
 
   type MLCompararResponse = {
     calificacion_predicha: number;
@@ -77,8 +84,7 @@ export default defineEventHandler(async (event) => {
 
   let mlResult: MLCompararResponse;
   try {
-    mlResult = await $fetch<MLCompararResponse>(`${mlUrl}/comparar`, {
-      method: "POST",
+    mlResult = await mlFetch<MLCompararResponse>("/comparar", {
       body: {
         tipo_materia: evaluacion.tipoMateriaDocente,
         dificultad_docente: evaluacion.dificultadDocente,
@@ -88,6 +94,8 @@ export default defineEventHandler(async (event) => {
         calidad_estudio: evaluacion.calidadEstudio,
         calificacion_real: inicial.notaObtenida,
         puntos_olvido_reales: puntosOlvidoReales,
+        escala_s: escalaS,
+        materia_id: materiaCtx?.dataset?.origen === "csv_subido" ? evaluacion.materiaId : undefined,
       },
     });
   } catch (err) {
