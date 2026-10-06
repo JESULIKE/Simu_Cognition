@@ -1,0 +1,1 @@
+import{W as a,u as n,n as u}from"./BXKKOi7f.js";const o=a(async t=>{if(["/login","/registro"].includes(t.path))return;const{status:e}=n();if(e.value==="unauthenticated")return u("/login")});export{o as default};

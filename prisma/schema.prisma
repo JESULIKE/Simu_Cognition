@@ -1,0 +1,144 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Modelos
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Usuario {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String?
+  nombre       String
+  creadoEn     DateTime     @default(now())
+
+  materias     Materia[]
+  simulaciones Simulacion[]
+  evaluaciones EstudianteEvaluacion[]
+}
+
+model Materia {
+  id        String      @id @default(cuid())
+  nombre    String
+  tipo      String      // "MEMORISTICA" | "LOGICO_MATEMATICA" | "MIXTA"
+  creadoEn  DateTime    @default(now())
+
+  usuario   Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId String
+
+  dataset      Dataset?
+  simulaciones Simulacion[]
+  evaluaciones EstudianteEvaluacion[]
+
+  @@index([usuarioId])
+}
+
+model Dataset {
+  id          String   @id @default(cuid())
+  origen      String   // "sintetico" | "csv_subido"
+  rutaArchivo String?  // ruta local o blob
+  creadoEn    DateTime @default(now())
+
+  materia   Materia @relation(fields: [materiaId], references: [id], onDelete: Cascade)
+  materiaId String  @unique
+}
+
+model Simulacion {
+  id                   String   @id @default(cuid())
+  dificultad           Int
+  horasEstudio         Float
+  repasosPrevios       Int
+  calidadEstudio       Float
+  umbralRetencion      Float
+  calificacionPredicha Float
+  diaRepasoOptimo      Float
+  etiqueta             String?
+  creadoEn             DateTime @default(now())
+
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId String
+
+  materia   Materia @relation(fields: [materiaId], references: [id], onDelete: Cascade)
+  materiaId String
+
+  @@index([usuarioId])
+  @@index([materiaId])
+  @@index([usuarioId, creadoEn])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Módulo de Validación Empírica (v4.0)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model EstudianteEvaluacion {
+  id            String   @id @default(cuid())
+  codigoAnonimo String   @unique // ej. "EST-001" — nunca nombre real
+
+  // Ficha del docente
+  dificultadDocente    Int    // 1-5
+  tipoMateriaDocente   String // "MEMORISTICA" | "LOGICO_MATEMATICA" | "MIXTA"
+
+  // Cuestionario del estudiante (autoreportado)
+  horasEstudio         Float
+  repasosPrevios       Int
+  calidadEstudio       Float  // 0-1, promedio normalizado del cuestionario Likert
+  dificultadPercibida  Int    // 1-5
+
+  creadaEn DateTime @default(now())
+
+  materia   Materia @relation(fields: [materiaId], references: [id], onDelete: Cascade)
+  materiaId String
+
+  docente   Usuario @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  docenteId String
+
+  resultados  ResultadoQuiz[]
+  comparacion ComparacionResultado?
+
+  @@index([materiaId])
+  @@index([docenteId])
+}
+
+model ResultadoQuiz {
+  id           String   @id @default(cuid())
+  // momento: "INICIAL" | "DIA_1" | "DIA_3" | "DIA_7" | "DIA_14"
+  momento      String
+  notaObtenida Float    // 0-100
+  // reestudioReportado: si true, el punto se excluye del análisis H2
+  reestudioReportado Boolean  @default(false)
+  fechaAplicacion    DateTime @default(now())
+
+  evaluacion   EstudianteEvaluacion @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+  evaluacionId String
+
+  @@index([evaluacionId])
+}
+
+model ComparacionResultado {
+  id String @id @default(cuid())
+
+  // H1 — un solo punto
+  calificacionPredicha Float
+  calificacionReal     Float
+  errorAbsoluto        Float // |predicha - real|
+
+  // H2 — series temporales (JSON serializado como String — limitación SQLite)
+  retencionPredichaJson String // "[{\"dia\": 0, \"retencion_predicha\": 1.0}, ...]"
+  retencionRealJson     String // "[{\"dia\": 0, \"retencion_real\": 1.0}, ...]"
+
+  recomendacionTexto String
+  generadaEn         DateTime @default(now())
+
+  evaluacion   EstudianteEvaluacion @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+  evaluacionId String               @unique
+}

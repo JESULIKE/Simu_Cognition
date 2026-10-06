@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/simulate.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/simulate",
+      "dest": "/api/simulate"
+    },
+    {
+      "src": "/",
+      "dest": "/api/simulate"
+    }
+  ]
+}
