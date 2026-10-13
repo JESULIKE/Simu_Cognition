@@ -22,12 +22,6 @@ if (!process.env.DIRECT_URL) {
   process.env.DIRECT_URL = process.env.POSTGRES_URL_NON_POOLING || "";
 }
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL no está definida. Configúrala en .env (local) o en las variables de entorno de Vercel."
-  );
-}
-
 declare global {
   // eslint-disable-next-line no-var
   var __prisma: PrismaClient | undefined;
@@ -47,7 +41,23 @@ function createPrismaClient(): PrismaClient {
   });
 }
 
-export const prisma: PrismaClient =
-  globalThis.__prisma ?? createPrismaClient();
+// Creación perezosa: si falta DATABASE_URL el error aparece solo en los endpoints
+// que usan la base de datos (con un mensaje claro) y no tumba /api/auth/session.
+function obtenerCliente(): PrismaClient {
+  if (!globalThis.__prisma) {
+    if (!process.env.DATABASE_URL) {
+      throw createError({
+        statusCode: 500,
+        message: "Falta la variable de entorno DATABASE_URL en el servidor.",
+      });
+    }
+    globalThis.__prisma = createPrismaClient();
+  }
+  return globalThis.__prisma;
+}
 
-globalThis.__prisma = prisma;
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_t, prop) {
+    return Reflect.get(obtenerCliente() as object, prop);
+  },
+});
